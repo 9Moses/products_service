@@ -143,15 +143,7 @@ docker compose ps
 docker compose logs -f
 ```
 
-Security
 
-- Do not commit `.env` files with real secrets to version control. This repo currently contains `.env` files for local development; rotate credentials if they were leaked.
-- For production, use Docker secrets, environment injection in your CI/CD system, or a secrets manager.
-
-If you want, I can:
-
-- Add `env_file` entries to `docker-compose.yml` files so containers pick up `.env` automatically.
-- Create a combined `docker-compose.yml` at the repo root to orchestrate both `api` and `main` services together.
 
 "# products_service" 
 Microservices Event-Driven Architecture (Flask + Django + RabbitMQ + MySQL)
