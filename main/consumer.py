@@ -100,7 +100,12 @@ def callback(ch, method, properties, body: bytes) -> None:
 
 
 def main() -> None:
-    params = pika.URLParameters("amqps://kmyhyinc:2A1RjChfIOBnbQhNLEorkQUKRO0JLyMa@capybara.lmq.cloudamqp.com/kmyhyinc")
+    # Load URL from environment/.env
+    import os
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+    RABBITMQ_URL = os.environ.get('RABBITMQ_URL', 'amqps://kmyhyinc:2A1RjChfIOBnbQhNLEorkQUKRO0JLyMa@capybara.lmq.cloudamqp.com/kmyhyinc')
+    params = pika.URLParameters(RABBITMQ_URL)
     params.heartbeat = 60
     params.blocked_connection_timeout = 300
 

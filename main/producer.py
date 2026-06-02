@@ -3,10 +3,16 @@ import time
 import logging
 import threading
 import pika
+import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+# Load .env (if present) so local environment secrets can be used
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
 # ── Connection settings ───────────────────────────────────────────────────────
+RABBITMQ_URL = os.environ.get('RABBITMQ_URL', 'amqps://kmyhyinc:2A1RjChfIOBnbQhNLEorkQUKRO0JLyMa@capybara.lmq.cloudamqp.com/kmyhyinc')
 MAX_RETRIES = 5
 RETRY_DELAY = 2       # seconds between retries (doubles each attempt)
 HEARTBEAT = 60        # seconds — keeps idle connections alive
@@ -20,7 +26,7 @@ _local = threading.local()
 
 
 def _get_connection_params() -> pika.ConnectionParameters:
-    params = pika.URLParameters("amqps://kmyhyinc:2A1RjChfIOBnbQhNLEorkQUKRO0JLyMa@capybara.lmq.cloudamqp.com/kmyhyinc")
+    params = pika.URLParameters(RABBITMQ_URL)
     params.heartbeat = HEARTBEAT
     params.blocked_connection_timeout = BLOCKED_TIMEOUT
     return params

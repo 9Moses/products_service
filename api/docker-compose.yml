@@ -19,6 +19,8 @@ services:
       context: .
       dockerfile: Dockerfile
     command: 'python consumer.py'
+    volumes:
+      - .:/app
     depends_on:
       db:
         condition: service_healthy   

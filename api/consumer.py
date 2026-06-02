@@ -2,13 +2,19 @@ import os
 import django
 import pika
 import json
+from django.conf import settings
+from dotenv import load_dotenv
 
+# Load local .env then initialize Django
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'api.settings')
 django.setup()
 
 from products.models import Products
 
-params = pika.URLParameters('amqps://kmyhyinc:2A1RjChfIOBnbQhNLEorkQUKRO0JLyMa@capybara.lmq.cloudamqp.com/kmyhyinc')
+# Use the URL from Django settings (which loads env/.env) or fallback to env
+RABBITMQ_URL = getattr(settings, 'RABBITMQ_URL', os.environ.get('RABBITMQ_URL'))
+params = pika.URLParameters(RABBITMQ_URL)
 
 connection = pika.BlockingConnection(params)
 
