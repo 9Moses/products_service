@@ -1,0 +1,54 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: 'python manage.py runserver 0.0.0.0:8000'
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    networks:
+      - shared_net
+
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: 'python consumer.py'
+    depends_on:
+      db:
+        condition: service_healthy   
+    networks:
+      - shared_net
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: admin
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - api_dbdata:/var/lib/mysql
+    ports:
+      - "33066:3306"
+    networks:
+      - shared_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  shared_net:
+    external: true  # joins the existing network created by the Flask stack
+    name: shared_net
+
+    
+volumes:
+  api_dbdata:

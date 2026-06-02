@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: 'python main.py'
+    ports:
+      - "8001:5000"
+    volumes:
+      - .:/app
+    depends_on:
+      mysql_main:
+        condition: service_healthy
+    networks:
+      - shared_net
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: 'python consumer.py'
+    depends_on:
+      mysql_main:
+        condition: service_healthy
+    networks:
+      - shared_net
+    
+
+  mysql_main:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: main
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_main_data:/var/lib/mysql
+    ports:
+      - "33067:3306"
+    networks:
+      - shared_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  shared_net:
+    name: shared_net
+
+volumes:
+  mysql_main_data:
