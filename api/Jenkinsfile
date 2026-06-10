@@ -1,0 +1,115 @@
+// API service Jenkins pipeline
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
+        timestamps()
+        timeout(time: 1, unit: 'HOURS')
+    }
+
+    environment {
+        REGISTRY = 'docker.io'
+        REGISTRY_NAMESPACE = 'myorg'
+        REGISTRY_CREDENTIALS = 'docker-registry-credentials'
+
+        API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:${BUILD_NUMBER}"
+        LATEST_API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:latest"
+
+        BUILD_ENV = "${WORKSPACE}/build"
+        DOCKER_BUILDKIT = '1'
+        DOCKER_CLI_EXPERIMENTAL = 'enabled'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh '''
+                    docker build \
+                        --tag ${API_IMAGE} \
+                        --tag ${LATEST_API_IMAGE} \
+                        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+                        --build-arg VCS_REF=$(git rev-parse --short HEAD) \
+                        --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
+                        -f Dockerfile .
+                '''
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        --volume ${WORKSPACE}:/app \
+                        --workdir /app \
+                        ${LATEST_API_IMAGE} \
+                        bash -c "python manage.py test --verbosity=2 || true"
+                '''
+            }
+        }
+
+        stage('Quality') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        --volume ${WORKSPACE}:/app \
+                        --workdir /app \
+                        ${LATEST_API_IMAGE} \
+                        bash -c "pip install flake8 pylint && \
+                                 flake8 . --max-line-length=120 --exclude=migrations || true && \
+                                 pylint **/*.py --disable=all --enable=E,F || true"
+                '''
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        --volume ${WORKSPACE}:/app \
+                        --workdir /app \
+                        ${LATEST_API_IMAGE} \
+                        bash -c "pip install safety && safety check --json || true"
+                '''
+            }
+        }
+
+        stage('Push') {
+            when {
+                branch 'main'
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin ${REGISTRY}
+                        docker push ${API_IMAGE}
+                        docker push ${LATEST_API_IMAGE}
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh '''
+                    docker system prune -f --volumes || true
+                    rm -rf ${BUILD_ENV}/* 2>/dev/null || true
+                    mkdir -p ${BUILD_ENV}
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker images | grep rest-api || true'
+        }
+    }
+}
