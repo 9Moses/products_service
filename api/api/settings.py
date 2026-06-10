@@ -132,3 +132,21 @@ STATIC_URL = 'static/'
 CORS_ORIGIN_ALLOW_ALL = True
 
 RABBITMQ_URL = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+
+# Django REST Framework settings - use drf-spectacular as the schema generator
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# drf-spectacular settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'REST Microservice API',
+    'DESCRIPTION': 'OpenAPI schema for the REST microservices',
+    'VERSION': '1.0.0',
+}
+
+# Try to register drf_spectacular app if installed
+try:
+    INSTALLED_APPS += ['drf_spectacular']
+except NameError:
+    pass

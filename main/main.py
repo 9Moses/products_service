@@ -8,9 +8,26 @@ from sqlalchemy import UniqueConstraint
 import requests
 from producer import publish
 
+# Swagger UI
+try:
+    from flasgger import Swagger
+    FLASGGER_AVAILABLE = True
+except Exception:
+    FLASGGER_AVAILABLE = False
+
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+mysqldb://root:root@mysql_main:3306/main"
 CORS(app)
+
+# Initialize Swagger if flasgger is installed
+if FLASGGER_AVAILABLE:
+    Swagger(app, template={
+        "info": {
+            "title": "Main Service API",
+            "description": "API for product likes and queries",
+            "version": "1.0.0"
+        }
+    })
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -44,39 +61,60 @@ def index():
 def like(id):
     
 
-    try:
-        req = requests.get('http://api-backend-1:8000/api/users', timeout=5)
-        req.raise_for_status()
+        """
+        Like a product.
 
-        user_data = req.json()
-        user_id = user_data["id"]
+        ---
+        post:
+            summary: Like a product
+            parameters:
+                - name: id
+                    in: path
+                    required: true
+                    schema:
+                        type: integer
+            responses:
+                200:
+                    description: Product liked
+                400:
+                    description: Bad request or already liked
+                502:
+                    description: Downstream service error
+        """
 
-        existing = ProductUser.query.filter_by(
-            user_id=user_id,
-            product_id=id
-        ).first()
+        try:
+            req = requests.get('http://api-backend-1:8000/api/users', timeout=5)
+            req.raise_for_status()
+
+            user_data = req.json()
+            user_id = user_data["id"]
+
+            existing = ProductUser.query.filter_by(
+                user_id=user_id,
+                product_id=id
+            ).first()
+            
+            if existing:
+                return jsonify({"error": "You already liked this product!"}), 400
+
+
+            product_user = ProductUser(user_id=user_id, product_id=id)
+            db.session.add(product_user)
+            db.session.commit()
+
+            publish("product_liked", {"id": id, "user_id": user_id})
+        except requests.exceptions.RequestException as e:
+            return jsonify({"error": f"Could not reach user service: {e}"}), 502
+        except ValueError:
+            return jsonify({
+                "error": "User service returned invalid response",
+                "body": req.text   
+            }), 502
+        except:
+            abort(400, 'You already liked this product!')
         
-        if existing:
-            return jsonify({"error": "You already liked this product!"}), 400
 
-
-        product_user = ProductUser(user_id=user_id, product_id=id)
-        db.session.add(product_user)
-        db.session.commit()
-
-        publish("product_liked", {"id": id, "user_id": user_id})
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Could not reach user service: {e}"}), 502
-    except ValueError:
-        return jsonify({
-            "error": "User service returned invalid response",
-            "body": req.text   
-        }), 502
-    except:
-        abort(400, 'You already liked this product!')
-    
-
-    return jsonify({"message": f"Product {id} liked successfully"})
+        return jsonify({"message": f"Product {id} liked successfully"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
