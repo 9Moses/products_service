@@ -1,4 +1,3 @@
-// Main service Jenkins pipeline
 pipeline {
     agent any
 
@@ -8,108 +7,26 @@ pipeline {
         timeout(time: 1, unit: 'HOURS')
     }
 
-    environment {
-        REGISTRY = 'ghcr.io'
-        REGISTRY_NAMESPACE = '9moses'
-        REGISTRY_CREDENTIALS = 'ghcr-registry-credentials'
-
-        MAIN_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-main:${BUILD_NUMBER}"
-        LATEST_MAIN_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-main:latest"
-
-        BUILD_ENV = "${WORKSPACE}/build"
-        DOCKER_BUILDKIT = '1'
-        DOCKER_CLI_EXPERIMENTAL = 'enabled'
-    }
-
     stages {
-        stage('Checkout') {
+        stage('Build API Service') {
             steps {
-                checkout scm
+                build job: 'service-api', wait: true, propagate: true
             }
         }
 
-        stage('Build') {
+        stage('Build Main Service') {
             steps {
-                sh '''
-                    docker build \
-                        --tag ${MAIN_IMAGE} \
-                        --tag ${LATEST_MAIN_IMAGE} \
-                        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-                        --build-arg VCS_REF=$(git rev-parse --short HEAD) \
-                        --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
-                        -f Dockerfile .
-                '''
-            }
-        }
-
-        stage('Unit Tests') {
-            steps {
-                sh '''
-                    docker run --rm \
-                        --volume ${WORKSPACE}:/app \
-                        --workdir /app \
-                        ${LATEST_MAIN_IMAGE} \
-                        bash -c "python -m pytest tests -q || true"
-                '''
-            }
-        }
-
-        stage('Quality') {
-            steps {
-                sh '''
-                    docker run --rm \
-                        --volume ${WORKSPACE}:/app \
-                        --workdir /app \
-                        ${LATEST_MAIN_IMAGE} \
-                        bash -c "pip install flake8 pylint && \
-                                 flake8 . --max-line-length=120 || true && \
-                                 pylint **/*.py --disable=all --enable=E,F || true"
-                '''
-            }
-        }
-
-        stage('Security Scan') {
-            steps {
-                sh '''
-                    docker run --rm \
-                        --volume ${WORKSPACE}:/app \
-                        --workdir /app \
-                        ${LATEST_MAIN_IMAGE} \
-                        bash -c "pip install safety && safety check --json || true"
-                '''
-            }
-        }
-
-        stage('Push') {
-            when {
-                branch 'main'
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin ${REGISTRY}
-                        docker push ${MAIN_IMAGE}
-                        docker push ${LATEST_MAIN_IMAGE}
-                        docker logout
-                    '''
-                }
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                sh '''
-                    docker system prune -f --volumes || true
-                    rm -rf ${BUILD_ENV}/* 2>/dev/null || true
-                    mkdir -p ${BUILD_ENV}
-                '''
+                build job: 'service-main', wait: true, propagate: true
             }
         }
     }
 
     post {
-        always {
-            sh 'docker images | grep rest-main || true'
+        success {
+            echo "All services built and pushed successfully"
+        }
+        failure {
+            echo "One or more services failed — check individual job logs"
         }
     }
 }

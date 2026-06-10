@@ -1,4 +1,3 @@
-// API service Jenkins pipeline
 pipeline {
     agent any
 
@@ -9,9 +8,9 @@ pipeline {
     }
 
     environment {
-        REGISTRY = 'docker.io'
-        REGISTRY_NAMESPACE = 'myorg'
-        REGISTRY_CREDENTIALS = 'docker-registry-credentials'
+        REGISTRY = 'ghcr.io'
+        REGISTRY_NAMESPACE = '9moses'
+        REGISTRY_CREDENTIALS = 'ghcr-registry-credentials'
 
         API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:${BUILD_NUMBER}"
         LATEST_API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:latest"
@@ -34,7 +33,7 @@ pipeline {
                     docker build \
                         --tag ${API_IMAGE} \
                         --tag ${LATEST_API_IMAGE} \
-                        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+                        --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
                         --build-arg VCS_REF=$(git rev-parse --short HEAD) \
                         --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
                         -f Dockerfile .
@@ -82,12 +81,16 @@ pipeline {
 
         stage('Push') {
             when {
-                branch 'main'
+                expression { env.GIT_BRANCH == 'origin/main' }
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: "${REGISTRY_CREDENTIALS}",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     sh '''
-                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin ${REGISTRY}
+                        echo ${DOCKER_PASS} | docker login ghcr.io -u ${DOCKER_USER} --password-stdin
                         docker push ${API_IMAGE}
                         docker push ${LATEST_API_IMAGE}
                         docker logout
@@ -99,7 +102,9 @@ pipeline {
         stage('Cleanup') {
             steps {
                 sh '''
-                    docker system prune -f --volumes || true
+                    docker rmi ${API_IMAGE} || true
+                    docker rmi ${LATEST_API_IMAGE} || true
+                    docker system prune -f || true
                     rm -rf ${BUILD_ENV}/* 2>/dev/null || true
                     mkdir -p ${BUILD_ENV}
                 '''
@@ -110,6 +115,12 @@ pipeline {
     post {
         always {
             sh 'docker images | grep rest-api || true'
+        }
+        success {
+            echo "API service build #${BUILD_NUMBER} succeeded"
+        }
+        failure {
+            echo "API service build #${BUILD_NUMBER} failed"
         }
     }
 }
