@@ -2,12 +2,7 @@
 // Builds and tests both services in isolated Docker containers
 
 pipeline {
-    agent {
-        docker {
-            image 'docker:24.0.5-cli'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
