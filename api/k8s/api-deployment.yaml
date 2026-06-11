@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+	name: api-backend
+	namespace: rest-microservice
+spec:
+	replicas: 1
+	selector:
+		matchLabels:
+			app: api-backend
+	template:
+		metadata:
+			labels:
+				app: api-backend
+		spec:
+			containers:
+				- name: api-backend
+					image: rest-microservice-api:latest
+					command: ["python","manage.py","runserver","0.0.0.0:8000"]
+					ports:
+						- containerPort: 8000
+					env:
+						- name: MYSQL_HOST
+							value: "api-db"
+						- name: MYSQL_PORT
+							value: "3306"
+						- name: MYSQL_DATABASE
+							value: "admin"
+						- name: MYSQL_ROOT_PASSWORD
+							value: "root"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+	name: api-backend
+	namespace: rest-microservice
+spec:
+	type: NodePort
+	selector:
+		app: api-backend
+	ports:
+		- port: 8000
+			targetPort: 8000
+			nodePort: 30080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+	name: api-queue
+	namespace: rest-microservice
+spec:
+	replicas: 1
+	selector:
+		matchLabels:
+			app: api-queue
+	template:
+		metadata:
+			labels:
+				app: api-queue
+		spec:
+			containers:
+				- name: api-queue
+					image: rest-microservice-api:latest
+					command: ["python","consumer.py"]
+					env:
+						- name: MYSQL_HOST
+							value: "api-db"
+						- name: MYSQL_PORT
+							value: "3306"
+						- name: MYSQL_DATABASE
+							value: "admin"
+						- name: MYSQL_ROOT_PASSWORD
+							value: "root"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+	name: api-db
+	namespace: rest-microservice
+spec:
+	replicas: 1
+	selector:
+		matchLabels:
+			app: api-db
+	template:
+		metadata:
+			labels:
+				app: api-db
+		spec:
+			containers:
+				- name: mysql
+					image: mysql:8.0
+					env:
+						- name: MYSQL_DATABASE
+							value: "admin"
+						- name: MYSQL_ROOT_PASSWORD
+							value: "root"
+					ports:
+						- containerPort: 3306
+					volumeMounts:
+						- name: mysql-storage
+							mountPath: /var/lib/mysql
+			volumes:
+				- name: mysql-storage
+					persistentVolumeClaim:
+						claimName: api-db-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+	name: api-db-pvc
+	namespace: rest-microservice
+spec:
+	accessModes:
+		- ReadWriteOnce
+	resources:
+		requests:
+			storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+	name: api-db
+	namespace: rest-microservice
+spec:
+	selector:
+		app: api-db
+	ports:
+		- protocol: TCP
+			port: 3306
+			targetPort: 3306
+

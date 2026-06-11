@@ -99,6 +99,20 @@ pipeline {
             }
         }
 
+        stage('Deploy') {
+            when {
+                expression { env.GIT_BRANCH == 'origin/main' }
+            }
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        export KUBECONFIG=${KUBECONFIG_FILE}
+                        kubectl apply -f main/k8s -n rest-microservice
+                    '''
+                }
+            }
+        }
+
         stage('Cleanup') {
             steps {
                 sh '''
