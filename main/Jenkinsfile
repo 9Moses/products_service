@@ -16,8 +16,8 @@ pipeline {
         LATEST_MAIN_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-main:latest"
 
         BUILD_ENV = "${WORKSPACE}/build"
-        DOCKER_BUILDKIT = '1'
-        DOCKER_CLI_EXPERIMENTAL = 'enabled'
+        DOCKER_BUILDKIT = '0'
+        DOCKER_CLI_EXPERIMENTAL = 'disabled' 
     }
 
     stages {

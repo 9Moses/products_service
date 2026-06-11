@@ -21,7 +21,7 @@ pipeline {
         LATEST_API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:latest"
         LATEST_MAIN_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-main:latest"
 
-        DOCKER_BUILDKIT = '1'
+        DOCKER_BUILDKIT = '0'
     }
 
     stages {

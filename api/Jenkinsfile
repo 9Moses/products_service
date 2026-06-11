@@ -16,8 +16,8 @@ pipeline {
         LATEST_API_IMAGE = "${REGISTRY}/${REGISTRY_NAMESPACE}/rest-api:latest"
 
         BUILD_ENV = "${WORKSPACE}/build"
-        DOCKER_BUILDKIT = '1'
-        DOCKER_CLI_EXPERIMENTAL = 'enabled'
+        DOCKER_BUILDKIT = '0'
+        DOCKER_CLI_EXPERIMENTAL = 'disabled'
     }
 
     stages {
