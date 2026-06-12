@@ -1,0 +1,44 @@
+# Global settings — apply to all scrape jobs
+global:
+  scrape_interval: 15s      # scrape metrics every 15 seconds
+  evaluation_interval: 15s  # evaluate alert rules every 15 seconds
+
+# Why scrape_interval matters:
+# Too low (1s) = too much data, high CPU
+# Too high (60s) = miss short spikes
+# 15s is the industry standard sweet spot
+
+scrape_configs:
+
+  # Prometheus monitors itself
+  # Why: lets you know if Prometheus itself is healthy
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape your API service
+  # Why: tracks request counts, response times, errors
+  - job_name: 'rest-api'
+    static_configs:
+      - targets: ['rest-api:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Scrape your Main service
+  - job_name: 'rest-main'
+    static_configs:
+      - targets: ['rest-main:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Scrape cAdvisor — monitors Docker containers
+  # Why: gives CPU, memory, network stats for each container
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8090']
+
+  # Scrape Node Exporter — monitors the host machine
+  # Why: gives CPU, disk, memory stats for your whole machine
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']

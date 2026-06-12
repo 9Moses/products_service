@@ -1,0 +1,14 @@
+# Tells Grafana where to find dashboard JSON files
+# Why: auto-loads dashboards on startup
+
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/provisioning/dashboards
