@@ -81,10 +81,11 @@ pipeline {
                 stage('Test API') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             echo "Running API tests..."
                             docker run --rm \
-                                --volume ${WORKSPACE}/api:/app \
-                                --workdir /app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/api \
                                 ${LATEST_API_IMAGE} \
                                 bash -c "python manage.py test --verbosity=2 || true"
                         '''
@@ -93,10 +94,11 @@ pipeline {
                 stage('Test Main') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             echo "Running Main tests..."
                             docker run --rm \
-                                --volume ${WORKSPACE}/main:/app \
-                                --workdir /app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/main \
                                 ${LATEST_MAIN_IMAGE} \
                                 bash -c "python -m pytest tests -q || true"
                         '''
@@ -110,9 +112,10 @@ pipeline {
                 stage('API Quality') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             docker run --rm \
-                                --volume ${WORKSPACE}/api:/app \
-                                --workdir /app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/api \
                                 ${LATEST_API_IMAGE} \
                                 bash -c "pip install flake8 pylint && \
                                          flake8 . --max-line-length=120 --exclude=migrations || true"
@@ -122,9 +125,10 @@ pipeline {
                 stage('Main Quality') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             docker run --rm \
-                                --volume ${WORKSPACE}/main:/app \
-                                --workdir /app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/main \
                                 ${LATEST_MAIN_IMAGE} \
                                 bash -c "pip install flake8 pylint && \
                                          flake8 . --max-line-length=120 || true"
@@ -134,8 +138,10 @@ pipeline {
                 stage('API Security') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             docker run --rm \
-                                --volume ${WORKSPACE}/api:/app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/api \
                                 ${LATEST_API_IMAGE} \
                                 bash -c "pip install safety && safety check --json || true"
                         '''
@@ -144,8 +150,10 @@ pipeline {
                 stage('Main Security') {
                     steps {
                         sh '''
+                            JENKINS_CONTAINER=$(hostname)
                             docker run --rm \
-                                --volume ${WORKSPACE}/main:/app \
+                                --volumes-from ${JENKINS_CONTAINER} \
+                                --workdir ${WORKSPACE}/main \
                                 ${LATEST_MAIN_IMAGE} \
                                 bash -c "pip install safety && safety check --json || true"
                         '''
@@ -178,28 +186,37 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    # Use --volumes-from so sibling containers can access the Jenkins workspace.
+                    # Direct bind mounts like -v /var/jenkins_home/...:/workspace don't work on
+                    # Docker Desktop for Windows because that path only exists inside the Jenkins
+                    # container, not on the Docker Desktop host.
+                    JENKINS_CONTAINER=$(hostname)
                     TERRAFORM_IMAGE="terraform-iac:${BUILD_NUMBER}"
                     ANSIBLE_IMAGE="ansible-iac:${BUILD_NUMBER}"
                     
                     echo "=== Terraform: init, fmt, validate, plan ==="
                     docker run --rm \
-                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volumes-from ${JENKINS_CONTAINER} \
+                        --workdir ${WORKSPACE}/terraform \
                         --volume /var/run/docker.sock:/var/run/docker.sock \
                         ${TERRAFORM_IMAGE} \
                         init -input=false
                     
                     docker run --rm \
-                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volumes-from ${JENKINS_CONTAINER} \
+                        --workdir ${WORKSPACE}/terraform \
                         ${TERRAFORM_IMAGE} \
                         fmt -check
                     
                     docker run --rm \
-                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volumes-from ${JENKINS_CONTAINER} \
+                        --workdir ${WORKSPACE}/terraform \
                         ${TERRAFORM_IMAGE} \
                         validate
                     
                     docker run --rm \
-                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volumes-from ${JENKINS_CONTAINER} \
+                        --workdir ${WORKSPACE}/terraform \
                         --volume /var/run/docker.sock:/var/run/docker.sock \
                         ${TERRAFORM_IMAGE} \
                         plan -out=tfplan
@@ -207,14 +224,16 @@ pipeline {
                     if [ "${APPLY_IAC}" = "true" ]; then
                       echo "=== Terraform: apply ==="
                       docker run --rm \
-                          --volume "${WORKSPACE}/terraform:/workspace" \
+                          --volumes-from ${JENKINS_CONTAINER} \
+                          --workdir ${WORKSPACE}/terraform \
                           --volume /var/run/docker.sock:/var/run/docker.sock \
                           ${TERRAFORM_IMAGE} \
                           apply -auto-approve tfplan
                       
                       echo "=== Ansible: provision ==="
                       docker run --rm \
-                          --volume "${WORKSPACE}/ansible:/workspace" \
+                          --volumes-from ${JENKINS_CONTAINER} \
+                          --workdir ${WORKSPACE}/ansible \
                           --volume /var/run/docker.sock:/var/run/docker.sock \
                           -e HOME=/tmp \
                           ${ANSIBLE_IMAGE} \
