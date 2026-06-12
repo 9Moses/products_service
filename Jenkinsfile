@@ -226,6 +226,40 @@ pipeline {
             }
         }
 
+                stage('Verify Monitoring') {
+                        when {
+                                expression { return params.RUN_IAC && params.APPLY_IAC }
+                        }
+                        steps {
+                                sh '''
+                                        set -e
+                                        echo "Verifying monitoring endpoints (retries: 5, delay: 5s)"
+
+                                        # Prometheus
+                                        for i in 1 2 3 4 5; do
+                                            if curl -fs http://localhost:9090/-/healthy; then
+                                                echo "Prometheus healthy"
+                                                break
+                                            else
+                                                echo "Prometheus not ready (attempt $i)"
+                                                sleep 5
+                                            fi
+                                        done
+
+                                        # Grafana
+                                        for i in 1 2 3 4 5; do
+                                            if curl -fs http://localhost:3000/api/health; then
+                                                echo "Grafana healthy"
+                                                break
+                                            else
+                                                echo "Grafana not ready (attempt $i)"
+                                                sleep 5
+                                            fi
+                                        done
+                                '''
+                        }
+                }
+
         stage('Push to Registry') {
             when {
                 branch 'main'
