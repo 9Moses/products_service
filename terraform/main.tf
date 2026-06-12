@@ -1,5 +1,5 @@
 resource "docker_image" "api" {
-  name         = var.api_image
+  name = var.api_image
   build {
     context    = "../api"
     dockerfile = "Dockerfile"
@@ -7,7 +7,7 @@ resource "docker_image" "api" {
 }
 
 resource "docker_image" "main" {
-  name         = var.main_image
+  name = var.main_image
   build {
     context    = "../main"
     dockerfile = "Dockerfile"
@@ -33,8 +33,8 @@ resource "docker_container" "rabbitmq" {
 }
 
 resource "docker_container" "api_db" {
-  name  = "rest-api-db"
-  image = var.api_db_image
+  name    = "rest-api-db"
+  image   = var.api_db_image
   command = ["--default-authentication-plugin=mysql_native_password"]
   env = [
     "MYSQL_DATABASE=admin",
@@ -53,8 +53,8 @@ resource "docker_container" "api_db" {
 }
 
 resource "docker_container" "main_db" {
-  name  = "rest-main-db"
-  image = var.main_db_image
+  name    = "rest-main-db"
+  image   = var.main_db_image
   command = ["--default-authentication-plugin=mysql_native_password"]
   env = [
     "MYSQL_DATABASE=main",
@@ -96,7 +96,7 @@ resource "docker_container" "api" {
     docker_container.rabbitmq,
   ]
   networks_advanced {
-    name = docker_network.rest_local_net.name
+    name    = docker_network.rest_local_net.name
     aliases = ["api-backend-1"]
   }
 }
