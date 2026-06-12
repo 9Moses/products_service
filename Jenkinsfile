@@ -4,6 +4,11 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'RUN_IAC', defaultValue: false, description: 'Enable Terraform/Ansible IaC execution')
+        booleanParam(name: 'APPLY_IAC', defaultValue: false, description: 'Apply Terraform plan and run Ansible provisioning when IaC is enabled')
+    }
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
         timestamps()
@@ -149,6 +154,78 @@ pipeline {
             }
         }
 
+        stage('Build IaC Docker Images') {
+            when {
+                expression { return params.RUN_IAC }
+            }
+            steps {
+                sh '''
+                    echo "=== Building Terraform Docker image ==="
+                    docker build --tag terraform-iac:${BUILD_NUMBER} "${WORKSPACE}/terraform"
+                    docker tag terraform-iac:${BUILD_NUMBER} terraform-iac:latest
+                    
+                    echo "=== Building Ansible Docker image ==="
+                    docker build --tag ansible-iac:${BUILD_NUMBER} "${WORKSPACE}/ansible"
+                    docker tag ansible-iac:${BUILD_NUMBER} ansible-iac:latest
+                '''
+            }
+        }
+
+        stage('Infrastructure as Code') {
+            when {
+                expression { return params.RUN_IAC }
+            }
+            steps {
+                sh '''
+                    set -e
+                    TERRAFORM_IMAGE="terraform-iac:${BUILD_NUMBER}"
+                    ANSIBLE_IMAGE="ansible-iac:${BUILD_NUMBER}"
+                    
+                    echo "=== Terraform: init, fmt, validate, plan ==="
+                    docker run --rm \
+                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                        ${TERRAFORM_IMAGE} \
+                        init -input=false
+                    
+                    docker run --rm \
+                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        ${TERRAFORM_IMAGE} \
+                        fmt -check
+                    
+                    docker run --rm \
+                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        ${TERRAFORM_IMAGE} \
+                        validate
+                    
+                    docker run --rm \
+                        --volume "${WORKSPACE}/terraform:/workspace" \
+                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                        ${TERRAFORM_IMAGE} \
+                        plan -out=tfplan
+
+                    if [ "${APPLY_IAC}" = "true" ]; then
+                      echo "=== Terraform: apply ==="
+                      docker run --rm \
+                          --volume "${WORKSPACE}/terraform:/workspace" \
+                          --volume /var/run/docker.sock:/var/run/docker.sock \
+                          ${TERRAFORM_IMAGE} \
+                          apply -auto-approve tfplan
+                      
+                      echo "=== Ansible: provision ==="
+                      docker run --rm \
+                          --volume "${WORKSPACE}/ansible:/workspace" \
+                          --volume /var/run/docker.sock:/var/run/docker.sock \
+                          -e HOME=/tmp \
+                          ${ANSIBLE_IMAGE} \
+                          -i localhost, -c local playbook.yml
+                    else
+                      echo "APPLY_IAC is false, skipping terraform apply and ansible provisioning."
+                    fi
+                '''
+            }
+        }
+
         stage('Push to Registry') {
             when {
                 branch 'main'
@@ -186,6 +263,10 @@ pipeline {
                     docker rmi ${LATEST_API_IMAGE} 2>/dev/null || true
                     docker rmi ${MAIN_IMAGE} 2>/dev/null || true
                     docker rmi ${LATEST_MAIN_IMAGE} 2>/dev/null || true
+                    docker rmi terraform-iac:${BUILD_NUMBER} 2>/dev/null || true
+                    docker rmi terraform-iac:latest 2>/dev/null || true
+                    docker rmi ansible-iac:${BUILD_NUMBER} 2>/dev/null || true
+                    docker rmi ansible-iac:latest 2>/dev/null || true
                     docker system prune -f 2>/dev/null || true
                 '''
             }

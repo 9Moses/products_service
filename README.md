@@ -109,6 +109,100 @@ cd main
 docker compose exec backend flask db upgrade
 ```
 
+---
+
+## Terraform + Ansible local IaC
+
+A local infrastructure stack is provided using Terraform and Ansible, with support for direct or containerized execution.
+
+### Local execution (direct)
+
+**Terraform:**
+
+```powershell
+cd terraform
+terraform init
+terraform apply -auto-approve
+```
+
+**Ansible:**
+
+```powershell
+cd ansible
+ansible-galaxy collection install community.docker
+ansible-playbook playbook.yml
+```
+
+This builds the `api` and `main` service images and creates containers for:
+- `rabbitmq`
+- `rest-api-db`
+- `rest-main-db`
+- `rest-api`
+- `rest-api-consumer`
+- `rest-main`
+- `rest-main-consumer`
+
+### Containerized execution (Docker)
+
+Build and run IaC tools inside Docker containers for isolation and consistency.
+
+**Build IaC Docker images:**
+
+```bash
+docker build -t terraform-iac:latest ./terraform
+docker build -t ansible-iac:latest ./ansible
+```
+
+**Run Terraform inside container:**
+
+```bash
+docker run --rm \
+  --volume $(pwd)/terraform:/workspace \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  terraform-iac:latest init -input=false
+
+docker run --rm \
+  --volume $(pwd)/terraform:/workspace \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  terraform-iac:latest apply -auto-approve
+```
+
+**Run Ansible inside container:**
+
+```bash
+docker run --rm \
+  --volume $(pwd)/ansible:/workspace \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  ansible-iac:latest -i localhost, -c local playbook.yml
+```
+
+### Jenkins Pipeline Integration
+
+The Jenkins pipeline automatically executes IaC in Docker containers:
+
+- Enable with build parameter: `RUN_IAC=true`
+- Apply changes with: `APPLY_IAC=true`
+- The pipeline builds `terraform-iac` and `ansible-iac` Docker images
+- Terraform and Ansible run inside their respective containers with Docker socket access
+- Cleanup automatically removes all IaC images
+
+### Service URLs
+
+- API: `http://localhost:8000`
+- Main: `http://localhost:8001`
+- RabbitMQ UI: `http://localhost:15672` (`guest` / `guest`)
+
+### Notes
+
+- The `terraform/Dockerfile` uses `hashicorp/terraform:latest` base image
+- The `ansible/Dockerfile` uses `docker:latest` base image and includes Python, Ansible, and Docker SDK
+- Both images mount the Docker socket to manage containers
+- Install the `community.docker` Ansible collection before running directly:
+
+```bash
+ansible-galaxy collection install community.docker
+```
+
 Note: containers rely on `.env` files to be present inside the build context. To pass environment variables into the container at runtime, add an `env_file` entry under the service in the compose file, for example:
 
 ```yaml
