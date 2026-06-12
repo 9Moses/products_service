@@ -14,4 +14,8 @@ RUN apt-get update \
 # Install Docker Pipeline plugin so Declarative docker agent works
 RUN jenkins-plugin-cli --plugins docker-workflow
 
+# Allow jenkins user to access the Docker socket (GID 999 is typical for Docker on Linux)
+RUN groupadd -f -g 999 docker \
+  && usermod -aG docker jenkins
+
 USER jenkins
