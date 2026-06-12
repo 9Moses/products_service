@@ -8,18 +8,33 @@
     api_env_path: "{{ api_path }}/.env"
     main_env_path: "{{ main_path }}/.env"
   tasks:
+    - name: Ensure Docker network exists
+      community.docker.docker_network:
+        name: rest_local_net
+        state: present
+
+    - name: Ensure API Docker volume exists
+      community.docker.docker_volume:
+        name: rest_api_dbdata
+        state: present
+
+    - name: Ensure Main Docker volume exists
+      community.docker.docker_volume:
+        name: rest_main_dbdata
+        state: present
+
     - name: Ensure API environment file exists
       copy:
         dest: "{{ api_env_path }}"
         content: |
-          RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+          RABBITMQ_URL=amqp://guest:guest@rest-rabbitmq:5672/
         force: no
 
     - name: Ensure Main environment file exists
       copy:
         dest: "{{ main_env_path }}"
         content: |
-          RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+          RABBITMQ_URL=amqp://guest:guest@rest-rabbitmq:5672/
         force: no
 
     - name: Build API Docker image
@@ -44,8 +59,11 @@
       community.docker.docker_container:
         name: rest-rabbitmq
         image: rabbitmq:3.11-management
-        state: started
+        state:  absent
+        recreate: true
         restart_policy: always
+        networks:
+          - name: rest_local_net
         published_ports:
           - "5672:5672"
           - "15672:15672"
@@ -58,39 +76,44 @@
         name: rest-api-db
         image: mysql:8.0
         state: started
+        recreate: true
         restart_policy: always
-        published_ports:
-          - "33066:3306"
+        networks:
+          - name: rest_local_net
         env:
           MYSQL_DATABASE: admin
           MYSQL_ROOT_PASSWORD: root
           MYSQL_ALLOW_EMPTY_PASSWORD: "no"
         command: --default-authentication-plugin=mysql_native_password
         volumes:
-          - "{{ playbook_dir }}/../api_dbdata:/var/lib/mysql"
+          - "rest_api_dbdata:/var/lib/mysql"
 
     - name: Start Main MySQL container
       community.docker.docker_container:
         name: rest-main-db
         image: mysql:8.0
-        state: started
+        state: absent
+        recreate: true
         restart_policy: always
-        published_ports:
-          - "33067:3306"
+        networks:
+          - name: rest_local_net
         env:
           MYSQL_DATABASE: main
           MYSQL_ROOT_PASSWORD: root
           MYSQL_ALLOW_EMPTY_PASSWORD: "no"
         command: --default-authentication-plugin=mysql_native_password
         volumes:
-          - "{{ playbook_dir }}/../main_dbdata:/var/lib/mysql"
+          - "rest_main_dbdata:/var/lib/mysql"
 
     - name: Start API service container
       community.docker.docker_container:
         name: rest-api
         image: rest-api:latest
-        state: started
+        state: absent
+        recreate: true
         restart_policy: on-failure
+        networks:
+          - name: rest_local_net
         published_ports:
           - "8000:8000"
         env:
@@ -103,8 +126,11 @@
       community.docker.docker_container:
         name: rest-api-consumer
         image: rest-api:latest
-        state: started
+        state: absent
+        recreate: true
         restart_policy: on-failure
+        networks:
+          - name: rest_local_net
         env:
           RABBITMQ_URL: amqp://guest:guest@rest-rabbitmq:5672/
         command: python consumer.py
@@ -115,8 +141,11 @@
       community.docker.docker_container:
         name: rest-main
         image: rest-main:latest
-        state: started
+        state: absent
+        recreate: true
         restart_policy: on-failure
+        networks:
+          - name: rest_local_net
         published_ports:
           - "8001:5000"
         env:
@@ -129,8 +158,11 @@
       community.docker.docker_container:
         name: rest-main-consumer
         image: rest-main:latest
-        state: started
+        state: absent
+        recreate: true
         restart_policy: on-failure
+        networks:
+          - name: rest_local_net
         env:
           RABBITMQ_URL: amqp://guest:guest@rest-rabbitmq:5672/
         command: python consumer.py

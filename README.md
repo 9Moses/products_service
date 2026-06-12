@@ -142,6 +142,8 @@ This builds the `api` and `main` service images and creates containers for:
 - `rest-main`
 - `rest-main-consumer`
 
+The Ansible playbook now uses Docker named volumes for MySQL data (`rest_api_dbdata` and `rest_main_dbdata`) to preserve state and avoid host-path bind issues on Windows.
+
 ### Containerized execution (Docker)
 
 Build and run IaC tools inside Docker containers for isolation and consistency.
@@ -197,7 +199,7 @@ The Jenkins pipeline automatically executes IaC in Docker containers:
 - The `terraform/Dockerfile` uses `hashicorp/terraform:latest` base image
 - The `ansible/Dockerfile` uses `docker:latest` base image and includes Python, Ansible, and Docker SDK
 - Both images mount the Docker socket to manage containers
-- Install the `community.docker` Ansible collection before running directly:
+- Install the `community.docker` Ansible collection before running directly if you are not using the containerized Ansible image:
 
 ```bash
 ansible-galaxy collection install community.docker

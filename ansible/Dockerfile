@@ -9,10 +9,12 @@ RUN apk add --no-cache \
     ca-certificates
 
 RUN pip install --no-cache-dir \
-    ansible \
+    ansible-core \
     docker \
     pyyaml \
     --break-system-packages
+
+RUN ansible-galaxy collection install community.docker
 
 WORKDIR /workspace
 
