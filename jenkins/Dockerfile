@@ -19,7 +19,7 @@ RUN groupadd -f -g 999 docker \
   && usermod -aG docker jenkins
 
 # Copy and register the runtime entrypoint
-COPY entrypoint.sh /entrypoint.sh
+COPY jenkins/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Run entrypoint as root so it can fix GID, then drops to jenkins via gosu
