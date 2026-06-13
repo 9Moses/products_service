@@ -42,7 +42,7 @@ resource "docker_container" "api_db" {
     "MYSQL_ALLOW_EMPTY_PASSWORD=no",
   ]
   volumes {
-    host_path      = "${path.module}/../api_dbdata"
+    volume_name    = docker_volume.api_dbdata.name
     container_path = "/var/lib/mysql"
   }
   ports {
@@ -62,7 +62,7 @@ resource "docker_container" "main_db" {
     "MYSQL_ALLOW_EMPTY_PASSWORD=no",
   ]
   volumes {
-    host_path      = abspath("${path.module}/../main_dbdata")
+    volume_name    = docker_volume.main_dbdata.name
     container_path = "/var/lib/mysql"
   }
   ports {
@@ -173,4 +173,12 @@ resource "docker_container" "main_consumer" {
 resource "docker_network" "rest_local_net" {
   name   = "rest_local_net"
   driver = "bridge"
+}
+
+resource "docker_volume" "api_dbdata" {
+  name = "rest-api-dbdata"
+}
+
+resource "docker_volume" "main_dbdata" {
+  name = "rest-main-dbdata"
 }
