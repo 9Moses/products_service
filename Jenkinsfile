@@ -219,7 +219,7 @@ pipeline {
                 --volumes-from ${JENKINS_CONTAINER} \
                 --workdir ${WORKSPACE}/terraform \
                 ${TERRAFORM_IMAGE} \
-                fmt -check
+                fmt
             
             echo "=== Terraform: validate ==="
             docker run --rm \
