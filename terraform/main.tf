@@ -50,6 +50,9 @@ resource "docker_container" "api_db" {
     external = 33066
   }
   restart = "always"
+   networks_advanced {
+    name = docker_network.rest_local_net.name
+  }
 }
 
 resource "docker_container" "main_db" {
@@ -77,7 +80,7 @@ resource "docker_container" "main_db" {
 
 resource "docker_container" "api" {
   name  = "rest-api"
-  image = var.api_image
+  image = docker_image.api.image_id
   ports {
     internal = 8000
     external = 8000
@@ -103,7 +106,7 @@ resource "docker_container" "api" {
 
 resource "docker_container" "api_consumer" {
   name  = "rest-api-consumer"
-  image = var.api_image
+  image = docker_image.api.image_id
   env = [
     "RABBITMQ_URL=amqp://guest:guest@rest-rabbitmq:5672/",
   ]
@@ -125,7 +128,7 @@ resource "docker_container" "api_consumer" {
 
 resource "docker_container" "main" {
   name  = "rest-main"
-  image = var.main_image
+  image = docker_image.main.image_id
   ports {
     internal = 5000
     external = 8001
@@ -150,7 +153,7 @@ resource "docker_container" "main" {
 
 resource "docker_container" "main_consumer" {
   name  = "rest-main-consumer"
-  image = var.main_image
+  image = docker_image.main.image_id
   env = [
     "RABBITMQ_URL=amqp://guest:guest@rest-rabbitmq:5672/",
   ]
