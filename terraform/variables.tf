@@ -1,7 +1,7 @@
 variable "docker_host" {
   description = "Optional Docker host for the Docker provider"
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "rabbitmq_image" {

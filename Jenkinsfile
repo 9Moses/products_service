@@ -218,6 +218,7 @@ pipeline {
                 --volumes-from ${JENKINS_CONTAINER} \
                 --workdir ${WORKSPACE}/terraform \
                 --volume /var/run/docker.sock:/var/run/docker.sock \
+                -e DOCKER_HOST=unix:///var/run/docker.sock \
                 ${TERRAFORM_IMAGE} \
                 validate
             
@@ -226,6 +227,7 @@ pipeline {
                 --volumes-from ${JENKINS_CONTAINER} \
                 --workdir ${WORKSPACE}/terraform \
                 --volume /var/run/docker.sock:/var/run/docker.sock \
+                -e DOCKER_HOST=unix:///var/run/docker.sock \
                 ${TERRAFORM_IMAGE} \
                 plan -out=tfplan
 
@@ -235,6 +237,7 @@ pipeline {
                     --volumes-from ${JENKINS_CONTAINER} \
                     --workdir ${WORKSPACE}/terraform \
                     --volume /var/run/docker.sock:/var/run/docker.sock \
+                    -e DOCKER_HOST=unix:///var/run/docker.sock \
                     ${TERRAFORM_IMAGE} \
                     apply -auto-approve tfplan
                 
