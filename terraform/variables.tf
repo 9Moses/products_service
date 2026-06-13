@@ -13,13 +13,13 @@ variable "rabbitmq_image" {
 variable "api_image" {
   description = "API service image tag"
   type        = string
-  default     = "rest-api:latest"
+  default     = "ghcr.io/9moses/rest-api:latest"
 }
 
 variable "main_image" {
   description = "Main service image tag"
   type        = string
-  default     = "rest-main:latest"
+  default     = "ghcr.io/9moses/rest-main:latest"
 }
 
 variable "api_db_image" {

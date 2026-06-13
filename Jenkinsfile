@@ -195,7 +195,7 @@ pipeline {
             cd ${WORKSPACE}/api && docker compose down 2>/dev/null || true
 
             echo "=== Pre-cleanup: remove conflicting resources ==="
-            docker rm -f rest-api rest-main rest-api-db rest-main-db rabbitmq 2>/dev/null || true
+            docker rm -f rest-api-db rest-main-db rest-api rest-main rest-rabbitmq rest-api-consumer rest-main-consumer api-db-1 main-mysql_main-1 2>/dev/null || true
             docker network rm rest_local_net 2>/dev/null || true
 
             echo "=== Terraform: init ==="
@@ -243,7 +243,7 @@ pipeline {
 
             if [ "${APPLY_IAC}" = "true" ]; then
                 echo "=== Cleanup existing resources ==="
-                docker rm -f rest-api-db rest-main-db rest-api rest-main rest-rabbitmq rest-api-consumer rest-main-consumer 2>/dev/null || true
+                docker rm -f rest-api-db rest-main-db rest-api rest-main rest-rabbitmq rest-api-consumer rest-main-consumer api-db-1 main-mysql_main-1 2>/dev/null || true
                 docker network rm rest_local_net 2>/dev/null || true
 
                 echo "=== Terraform: apply ==="
