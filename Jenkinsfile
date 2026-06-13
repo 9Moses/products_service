@@ -194,6 +194,10 @@ pipeline {
             cd ${WORKSPACE}/main && docker compose down 2>/dev/null || true
             cd ${WORKSPACE}/api && docker compose down 2>/dev/null || true
 
+            echo "=== Pre-cleanup: remove conflicting resources ==="
+            docker rm -f rest-api rest-main rest-api-db rest-main-db rabbitmq 2>/dev/null || true
+            docker network rm rest_local_net 2>/dev/null || true
+
             echo "=== Terraform: init ==="
             docker run --rm \
                 --volumes-from ${JENKINS_CONTAINER} \
