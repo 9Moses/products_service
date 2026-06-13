@@ -180,70 +180,78 @@ pipeline {
         }
 
         stage('Infrastructure as Code') {
-            when {
-                expression { return params.RUN_IAC }
-            }
-            steps {
-                sh '''
-                    set -e
-                    # Use --volumes-from so sibling containers can access the Jenkins workspace.
-                    # Direct bind mounts like -v /var/jenkins_home/...:/workspace don't work on
-                    # Docker Desktop for Windows because that path only exists inside the Jenkins
-                    # container, not on the Docker Desktop host.
-                    JENKINS_CONTAINER=$(hostname)
-                    TERRAFORM_IMAGE="terraform-iac:${BUILD_NUMBER}"
-                    ANSIBLE_IMAGE="ansible-iac:${BUILD_NUMBER}"
-                    
-                    echo "=== Terraform: init, fmt, validate, plan ==="
-                    docker run --rm \
-                        --volumes-from ${JENKINS_CONTAINER} \
-                        --workdir ${WORKSPACE}/terraform \
-                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                        ${TERRAFORM_IMAGE} \
-                        init -input=false
-                    
-                    docker run --rm \
-                        --volumes-from ${JENKINS_CONTAINER} \
-                        --workdir ${WORKSPACE}/terraform \
-                        ${TERRAFORM_IMAGE} \
-                        fmt -check
-                    
-                    docker run --rm \
-                        --volumes-from ${JENKINS_CONTAINER} \
-                        --workdir ${WORKSPACE}/terraform \
-                        ${TERRAFORM_IMAGE} \
-                        validate
-                    
-                    docker run --rm \
-                        --volumes-from ${JENKINS_CONTAINER} \
-                        --workdir ${WORKSPACE}/terraform \
-                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                        ${TERRAFORM_IMAGE} \
-                        plan -out=tfplan
+    when {
+        expression { return params.RUN_IAC }
+    }
+    steps {
+        sh '''
+            set -e
+            JENKINS_CONTAINER=$(hostname)
+            TERRAFORM_IMAGE="terraform-iac:${BUILD_NUMBER}"
+            ANSIBLE_IMAGE="ansible-iac:${BUILD_NUMBER}"
+            
+            echo "=== Terraform: init ==="
+            docker run --rm \
+                --volumes-from ${JENKINS_CONTAINER} \
+                --workdir ${WORKSPACE}/terraform \
+                --volume /var/run/docker.sock:/var/run/docker.sock \
+                ${TERRAFORM_IMAGE} \
+                init -input=false
 
-                    if [ "${APPLY_IAC}" = "true" ]; then
-                      echo "=== Terraform: apply ==="
-                      docker run --rm \
-                          --volumes-from ${JENKINS_CONTAINER} \
-                          --workdir ${WORKSPACE}/terraform \
-                          --volume /var/run/docker.sock:/var/run/docker.sock \
-                          ${TERRAFORM_IMAGE} \
-                          apply -auto-approve tfplan
-                      
-                      echo "=== Ansible: provision ==="
-                      docker run --rm \
-                          --volumes-from ${JENKINS_CONTAINER} \
-                          --workdir ${WORKSPACE}/ansible \
-                          --volume /var/run/docker.sock:/var/run/docker.sock \
-                          -e HOME=/tmp \
-                          ${ANSIBLE_IMAGE} \
-                          -i localhost, -c local playbook.yml
-                    else
-                      echo "APPLY_IAC is false, skipping terraform apply and ansible provisioning."
-                    fi
-                '''
-            }
-        }
+            echo "=== Fixing provider permissions ==="
+            docker run --rm \
+                --volumes-from ${JENKINS_CONTAINER} \
+                --workdir ${WORKSPACE}/terraform \
+                --entrypoint sh \
+                ${TERRAFORM_IMAGE} \
+                -c "chmod -R +x .terraform/providers/"
+            
+            echo "=== Terraform: fmt ==="
+            docker run --rm \
+                --volumes-from ${JENKINS_CONTAINER} \
+                --workdir ${WORKSPACE}/terraform \
+                ${TERRAFORM_IMAGE} \
+                fmt -check
+            
+            echo "=== Terraform: validate ==="
+            docker run --rm \
+                --volumes-from ${JENKINS_CONTAINER} \
+                --workdir ${WORKSPACE}/terraform \
+                --volume /var/run/docker.sock:/var/run/docker.sock \
+                ${TERRAFORM_IMAGE} \
+                validate
+            
+            echo "=== Terraform: plan ==="
+            docker run --rm \
+                --volumes-from ${JENKINS_CONTAINER} \
+                --workdir ${WORKSPACE}/terraform \
+                --volume /var/run/docker.sock:/var/run/docker.sock \
+                ${TERRAFORM_IMAGE} \
+                plan -out=tfplan
+
+            if [ "${APPLY_IAC}" = "true" ]; then
+                echo "=== Terraform: apply ==="
+                docker run --rm \
+                    --volumes-from ${JENKINS_CONTAINER} \
+                    --workdir ${WORKSPACE}/terraform \
+                    --volume /var/run/docker.sock:/var/run/docker.sock \
+                    ${TERRAFORM_IMAGE} \
+                    apply -auto-approve tfplan
+                
+                echo "=== Ansible: provision ==="
+                docker run --rm \
+                    --volumes-from ${JENKINS_CONTAINER} \
+                    --workdir ${WORKSPACE}/ansible \
+                    --volume /var/run/docker.sock:/var/run/docker.sock \
+                    -e HOME=/tmp \
+                    ${ANSIBLE_IMAGE} \
+                    -i localhost, -c local playbook.yml
+            else
+                echo "APPLY_IAC is false, skipping terraform apply and ansible provisioning."
+            fi
+        '''
+    }
+}
 
                 stage('Verify Monitoring') {
                         when {
