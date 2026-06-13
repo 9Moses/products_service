@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir \
     pyyaml \
     --break-system-packages
 
-RUN ansible-galaxy collection install community.docker
+RUN ansible-galaxy collection install community.docker -p /usr/share/ansible/collections
 
 WORKDIR /workspace
 
