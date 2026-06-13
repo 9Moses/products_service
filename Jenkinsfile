@@ -190,6 +190,10 @@ pipeline {
             TERRAFORM_IMAGE="terraform-iac:${BUILD_NUMBER}"
             ANSIBLE_IMAGE="ansible-iac:${BUILD_NUMBER}"
             
+            echo "=== Stop conflicting Docker Compose services ==="
+            cd ${WORKSPACE}/main && docker compose down 2>/dev/null || true
+            cd ${WORKSPACE}/api && docker compose down 2>/dev/null || true
+
             echo "=== Terraform: init ==="
             docker run --rm \
                 --volumes-from ${JENKINS_CONTAINER} \
