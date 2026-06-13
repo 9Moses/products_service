@@ -230,8 +230,14 @@ pipeline {
                 -e DOCKER_HOST=unix:///var/run/docker.sock \
                 ${TERRAFORM_IMAGE} \
                 plan -out=tfplan
+            
+           
 
             if [ "${APPLY_IAC}" = "true" ]; then
+                echo "=== Cleanup existing resources ==="
+                docker rm -f rest-api-db rest-main-db rest-api rest-main rest-rabbitmq rest-api-consumer rest-main-consumer 2>/dev/null || true
+                docker network rm rest_local_net 2>/dev/null || true
+
                 echo "=== Terraform: apply ==="
                 docker run --rm \
                     --volumes-from ${JENKINS_CONTAINER} \
