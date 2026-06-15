@@ -5,17 +5,21 @@ import json
 
 from .producer import publish
 
+from drf_spectacular.utils import extend_schema
 
 from .models import Products, User
 from .serializer import ProductSerializer
 import random
 
 class ProductViewSet(viewsets.ViewSet):
+
+    @extend_schema(responses={200: ProductSerializer(many=True)})
     def list(self, request): # /api/products
        products = Products.objects.all()
        serializer = ProductSerializer(products, many=True)
        return Response(serializer.data)
 
+    @extend_schema(request=ProductSerializer, responses={201: ProductSerializer})
     def create(self, request): # /api/products
        serializer = ProductSerializer(data=request.data)
        serializer.is_valid(raise_exception=True)
@@ -23,11 +27,13 @@ class ProductViewSet(viewsets.ViewSet):
        publish('product_created', serializer.data)
        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(responses={200: ProductSerializer})
     def retrive(self, request, pk=None): # /api/products/<str:id>
         products = Products.objects.get(id=pk)
         serializer = ProductSerializer(products)
         return Response(serializer.data)
 
+    @extend_schema(request=ProductSerializer, responses={200: ProductSerializer})
     def update(self, request, pk=None): # /api/products/<str:id>
         products = Products.objects.get(id=pk)
         serializer = ProductSerializer(instance=products, data=request.data)
@@ -37,6 +43,7 @@ class ProductViewSet(viewsets.ViewSet):
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 
 
+    @extend_schema(responses={204: None})
     def destroy(self, request, pk=None): # /api/products/<str:id>
         products = Products.objects.get(id=pk)
         products.delete()

@@ -16,7 +16,7 @@ services:
       - '--web.enable-lifecycle'             # allows config reload
     networks:
       - monitoring
-      - microservices-network   # same network as your services
+      - shared_net   # same network as your services
     restart: unless-stopped
 
   # Grafana — metrics visualization
@@ -76,7 +76,7 @@ services:
 networks:
   monitoring:
     driver: bridge
-  microservices-network:
+  shared_net:
     external: true    # connects to your existing services network
 
 volumes:
